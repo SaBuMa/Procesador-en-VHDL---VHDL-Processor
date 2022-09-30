@@ -1,0 +1,1224 @@
+--***********************************************************--
+--        	PONTIFICIA UNIVERSIDAD JAVERIANA	             	 --
+--        		ORGANIZACIÓN DE COMPUTADORES 	                --
+--                   													 --
+-- Nombres: Santiago Burgos, Camila Moya, Dayanna Méndez     --
+-- Título: Proyecto Final: Procesador								 --
+-- Fecha: 02/12/2020                 								 --
+--                                                           --
+--***********************************************************--
+
+--Este bloque es el principal y el central del procesador, ya que en este bloque es en donde se manejan todas las señales necesarias para habilitar, deshabilitar y deocdificar todo los datos que pasan por cada uno de los demas bloques funcionales del procesador--
+
+--***********************************************************--
+--DEFINICIÓN DE LAS LIBRERÍAS 
+--***********************************************************--
+library IEEE;
+use IEEE.std_logic_1164.all;
+
+--***********************************************************--
+--DEFINICION DE LAS ENTRADAS Y SALIDAS
+--***********************************************************--
+
+entity Control is
+port(
+	clk 							: in std_logic;    
+	Reset         				: in std_logic;
+	Enable        				: in std_logic;
+	Interrupt					: in std_logic;
+	Reg_Inst_OPcode			: in std_logic_vector(3 downto 0);
+	Reg_Inst_Modo				: in std_logic_vector(1 downto 0);
+	Banderas      				: in std_logic_vector(3 downto 0);
+	ALU_Opcode					: out std_logic_vector(3 downto 0);
+	Enable_Reg_Inst		 	: out std_logic;
+	Enable_Reg_Datos			: out std_logic;
+	Enable_Reg_Dato_B		 	: out std_logic;
+	Enable_PC 					: out std_logic;
+	Enable_cargar_PC			: out std_logic;
+	Count_up 					: out std_logic;
+	Count_down 					: out std_logic;
+	Enable_Reg_PC_dir 		: out std_logic;
+	Enable_Reg_Band 			: out std_logic;
+	Selector_direccion 		: out std_logic_vector(1 downto 0);
+	Selector_dato_01 			: out std_logic_vector(1 downto 0);
+	Selector_dato_02 			: out std_logic;
+	Selector_dato_B 			: out std_logic;
+	Ren           				: out std_logic;
+	Wen           				: out std_logic;
+	prueba_estado				: out std_logic_vector (44 downto 0)
+
+);
+end entity Control;
+
+--***********************************************************--
+--DEFINICIÓN DE ARQUITECTURA                        		    --
+--***********************************************************--
+architecture ControlArch of Control is
+
+--***********************************************************--
+--DEFINICIÓN DE SEÑALES DE CONEXIÓN  		                   --
+--***********************************************************--
+component dffe
+port(d,clk,clrn,prn,ena: in std_logic;q:out std_logic);
+end component;
+
+type mis_estados is (s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14,s15,s16,s17,s18,s19,s20,s21,s22,s23,s24,s25,s26,s27,s28,s29,s30,s31,s32,s33,s34,s35,s36,s37,s38,s39,s40,s41,s42,s43,s44);
+signal estado: mis_estados;
+
+signal Int_end	: std_logic;
+signal eeee 	: std_logic_vector (44 downto 0);
+signal OPCODE	: std_logic_vector (3 downto 0);
+signal Modo		: std_logic_vector (1 downto 0);
+signal Mayor,Menor: std_logic;
+
+--***********************************************************--
+--DECLARACION LOGICA							   						  --
+--***********************************************************--
+begin
+
+-- A continuacion se presentan los estados, los que sucede en cada uno de ellos y las acciones que se realizan
+
+
+Mayor<=(Banderas(2));
+Menor<=(not (Banderas(2)) and (not (Banderas(1))));
+
+	process(clk,Enable)
+		begin
+	
+			if (clk'EVENT and clk = '1') then
+			case estado is
+				when s0 => -- En este estado se inicializa el sistema en '0'
+						estado <= s1;
+				
+				when s1 =>-- En este estado se envia la direccion del Program Counter al Regsitro_PC_dir
+						if (Interrupt='1') then
+							estado<=s37;
+						else
+							estado <= s2;
+							
+						end if; 
+				
+				when s2 =>-- En este estado se envia la primer señal de lectura a la memoria
+						estado <= s3;
+				
+				when s3 =>-- En este estado se envia la segunda y ultima señal de lectura a la memoria
+						estado <= s4;
+			
+				when s4 =>-- En este estado se habilita el Registro de Instrucciones para guardar la primera isntruccion proveniete de la memoria
+						estado<=s5;
+				
+				when s5 =>-- En este estado se realiza la decodificacion de la instruccion proveniente del Registro de Instrucciones
+					
+				--Si es para lectura y escritura de memoria
+					--Si es modo de direccionamiento directo o indirecto
+					if (((Modo = "10" or Modo="11") and (OPCODE="0011" or OPCODE="0100")))  then
+						estado <= s7;
+					--Si es modo de direccionamiento imediato
+						elsif (OPCODE="0011" and Modo="01") then
+							estado <= s6;
+					
+				--Si es para suma, resta y comparación
+					--Si es modo de direccionamiento imediato
+						elsif ((OPCODE="0001" or OPCODE="0010" or OPCODE="0101") and Modo="01") then
+							
+							estado <= s19;
+					--Si es modo de direccionamiento directo o indirecto
+						elsif ((OPCODE="0001" or OPCODE="0010" or OPCODE="0101") and (Modo="10" or Modo="11")) then
+							
+							estado <= s20;
+					
+				--Si es una subrutina
+					--Si es modo de direccionamiento directo o indirecto
+						elsif ((OPCODE="1001" ) and (Modo="10" or Modo="11")) then
+							estado <= s15;
+				--Si es retorno de subrutina
+						elsif (OPCODE="1010") then
+							estado<=s36;
+						
+				--Si es un salto sin condicion, salto mayor que o menor que
+						elsif (OPCODE="1000" or OPCODE="0110" or OPCODE="0111") then 
+							estado<=s42;
+				
+					end if;
+				
+				when s6 =>-- En este estado se guarda un dato en el Registro de datos proveniente del Registro de Instrucciones 
+							estado <= s15;
+				
+				when s7 =>-- En este estado se carga el Registro Pc dir con un valor proveniente del Registro de Instrucciones 
+						if (OPCODE="0100" and Modo="10") then 
+								estado <= s17;
+						else
+							estado <= s8;
+						end if;  
+				
+				when s8 =>-- En este estado se envia la primer señal de lectura a la memoria
+							estado <= s9;
+				
+				when s9 =>-- En este estado se envia la segunda señal de lectura a la memoria
+						if (OPCODE="0100") then 
+							estado<=s16;
+						
+						elsif ((OPCODE="1001" and Modo="11") or (OPCODE="1010") or Int_end='1')then
+							estado<=s34;
+						
+						elsif (OPCODE="0011" or ((Modo="11") and((OPCODE="1000") or (OPCODE="0110" and (Mayor='1')) or (OPCODE="0111" and (Menor='1'))))) then
+							estado<=s10;
+							
+						end if;
+				
+				when s10 =>-- 	En este estado dependiendo del modo de direccionamiento se guarda un valor proveniente de la memoria en el Registro de Datos o en el Registro Dato B
+						--Si es modo de direccionamiento indirecto
+						if (((OPCODE="0011") and (Modo="11")) or ((Modo="11") and((OPCODE="1000") or (OPCODE="0110" and (Mayor='1')) or (OPCODE="0111" and (Menor='1'))))) then
+									estado <= s11;
+						--Si es modo de direccionamiento directo
+						elsif ((Modo="10" and OPCODE="0011")) then
+									estado <= s15;
+						
+						elsif((Modo="10" and OPCODE="0100")) then
+								estado <= s15;
+						end if;
+				
+				when s11 =>-- En este estado se carga el Registro PC dir con el valor proveniente del Registro Dato B
+						if (OPCODE="0100") then 
+							estado <= s17;
+						else 
+							estado <= s12;
+						end if; 
+				
+				when s12 =>-- En este estado se envia la primer señal de lectura a la memoria
+							estado <= s13;
+							
+				when s13 =>-- En este estado se envia la segunda señal de lectura a la memoria
+							if (((Modo="11") and((OPCODE="1000") or (OPCODE="0110" and (Mayor='1')) or (OPCODE="0111" and (Menor='1'))))) then
+								estado <= s44;
+							else
+								estado <= s14;
+							end if;
+				
+				when s14 =>-- Este estado es el ultimo en el proceso de direccionamiento indirecto y se procede a guardar en el Registro de Datos el valor Proveniente de la memoria
+							estado <= s15;
+				
+				
+				when s15 =>-- En este estado se Incrementa el Program Counter	
+					if(OPCODE="1001") then
+						--Si es salto a subrutina
+						estado<=s30;
+					else
+						estado<=s1;
+					end if; 
+			
+			--Estados para escritura de memoria		
+				when s16=>-- En este estado se guarda un valor en el Registro Dato B el cual representa una posicion de memoria en la cual se escribira
+					estado <= s11;
+					
+				when s17=>-- En este estado se envia la primer señal de escritura a la memoria
+					estado <= s18;
+				
+				when s18=>-- En este estado se envia la segunda señal de escritura a la memoria
+					estado <= s15;
+				
+			--Estados para ALU: Suma y Resta	
+				when s19=>-- En este estado se carga el Registro Dato B con el segundo valor a ser ingresado a la ALU
+					estado <= s28;
+				
+				when s20=> --En este estado se carga el Registro Pc dir con una direccion de memoria procedente del Registro Dato B
+					estado <= s21;
+				
+				when s21=>-- En este estado se envia la primer señal de lectura a la memoria
+					estado <= s22;
+				
+				when s22=>-- En este estado se envia la segunda señal de lectura a la memoria
+					estado <= s23;
+				
+				when s23=>-- En este estado se carga el Registro Dato B con el segundo dato a enviar a la ALU si el direccionamiento ha sido directo
+					if((OPCODE="0010" or OPCODE="0001") and (Modo="10")) then
+						estado<=s28;
+					elsif (Modo="11") then 
+						estado<=s24;
+					end if;
+
+				when s24=>-- En este estado se carga el Registro PC dir con una posicion de memoria procedente del Registro Dato B
+					estado <= s25;
+				
+				when s25=>-- En este estado se envia la primer señal de lectura a la memoria
+					estado <= s26;
+				
+				when s26=>-- En este estado se envia la segunda señal de lectura a la memoria
+					estado <= s27;
+				
+				when s27=>-- En este estado se carga el Registro Dato B con el segundo dato a enviar a la ALU si el direccionamiento ha sido indirecto
+					estado <= s28;
+				
+				when s28=>--En este estado se habilitael Registro Banderas para guardar las banderas provenientes de la ALU
+					if (OPCODE="0001" or OPCODE="0010") then
+						estado<=s29;
+					elsif(OPCODE="0101") then
+						estado<=s15;
+					end if;
+					
+				
+				when s29=>--En este estado se habilita el Regsitro de Datos para guardar el resultado procedente de la ALU
+					estado <= s15;
+				
+			--Estados para subrutinas
+				when s30=>--En este estado se carga el Registro PC dir con la direccion procedente del Stack Pointer
+					if(OPCODE="1010" or Int_end='1') then
+						estado<=s8;
+					else 
+						estado<=s31;
+					
+					end if;
+				
+				when s31=>-- En este estado se envia la primer señal de escritura a la memoria
+					estado<=s32;
+				
+				when s32=>-- En este estado se envia la segunda señal de escirtura a la memoria
+					estado<=s33;
+					
+				when s33=>-- En este estado se disminuye el valor del Stack Pointer y se carga el Registro Pc dir con la posicion de memoria procedente del Registro de Instrucciones
+					
+					if (Modo="10") then
+					--Si es modo de direccionamiento directo
+						estado<=s35;
+						
+					--Si es modo de direccionamiento indirecto
+					elsif (Modo="11") then 
+						estado<=s8;
+					end if; 
+				
+				when s34=>-- En este estado se habilita el Registro de Instrucciones 
+					If (Int_end='1')then	
+						estado<=s41;
+					elsif ((OPCODE="1001" and Modo="11") or (OPCODE="1010")) then
+						estado<=s35;
+					end if;
+					
+					
+				when s35=>--En este estado se carga el Program Counter con una posicion de memoria proveniente del Registro de instrucciones
+					if((Modo="11") and((OPCODE="1000") or (OPCODE="0110" and (Mayor='1')) or (OPCODE="0111" and (Menor='1')))) then
+						estado<=s43;
+						
+					else
+						estado<=s1;
+					end if;
+				
+				when s36=>-- En este estado se habilita el Stack Pointer para que cuente de forma ascendente
+					estado<=s30;
+				
+			--Interrupciones
+				
+				when s37=>--En este estado se carga el Registro Pc dir con la direccin del Stack Pointer
+					if(Int_end='1') then 
+						estado<=s8;
+					else
+						estado<=s38;
+					end if;
+					
+				when s38=>--En este estado se envia la primer señal de excritura a la memoria
+					estado<=s39;
+					
+				when s39=>--En este estado se envia la segunda señal de excritura a la memoria
+					estado<=s40;
+					
+				when s40=>--En este estado se espera a que la interrupcion termine y no se habilita nada
+					if(Interrupt='1') then
+						estado<=s40;
+					else
+						Int_end<='1';
+						estado<=s37;
+					end if;
+				
+				when s41=>--En este estado se carga el Registro PC dir con el valor proveniente del Registro de Instrucciones
+					estado<=s1;
+					Int_end<='0';
+					
+			--Saltos
+				when s42=>--En este estado se decodifica tanto la instruccion como el Registro Bandera
+					if((Modo="10" or Modo="11") and((OPCODE="1000") or (OPCODE="0110" and (Mayor='1')) or (OPCODE="0111" and (Menor='1')))) then
+						estado<=s35;
+					end if;
+				
+				when s43=>-- En este estado se carga el Registro PC dir con el Program counter
+					estado<=s8;
+				
+				when s44=>-- En este estado se carga el Program COunter con un valor proveniente del Regsitro de Instrucciones
+					estado<=s1;
+					
+			end case;
+		end if;
+	end process;
+
+process (estado)
+	begin
+		case estado is
+			when s0 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000000000000000000000001";		
+					
+		when s1 =>
+			
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '1';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "10";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000000000000000000000010";
+		
+		when s2 =>
+		
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "10";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '1';
+				Wen           				<= '0';
+			
+				eeee<="000000000000000000000000000000000000000000100";
+				
+		when s3 =>
+				
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "10";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '1';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000000000000000000001000";
+				
+		when s4 =>
+				
+				Enable_Reg_Inst 			<= '1';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000000000000000000010000";
+			
+		when s5 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000000000000000000100000";
+			
+				OPCODE<=Reg_Inst_OPcode;
+				Modo<=Reg_Inst_Modo;
+				
+		when s6 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '1'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "01";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000000000000000001000000";
+		
+		when s7 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '1';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000000000000000010000000";
+				
+		when s8 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '1';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000000000000000100000000";
+				
+		when s9 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '1';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000000000000001000000000";
+				
+		when s10 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '1'; 
+				Enable_Reg_Dato_B 		<= '1';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "11";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000000000000010000000000";
+				
+		when s11 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '1';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "11";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000000000000100000000000";
+				
+		when s12 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "11";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '1';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000000000001000000000000";
+				
+		when s13 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "11";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '1';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000000000010000000000000";
+				
+		when s14 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '1'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000000000100000000000000";
+				
+		when s15 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '1';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000000001000000000000000";
+			
+		when s16 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '1';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000000010000000000000000";
+			
+		when s17 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '1';
+				
+				eeee<="000000000000000000000000000100000000000000000";
+			
+		when s18 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '1';
+				
+				eeee<="000000000000000000000000001000000000000000000";
+			
+		when s19 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '1';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '1';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000010000000000000000000";
+				--Para mandar el OPCODE a la ALU
+				ALU_Opcode<=OPCODE;
+		
+		when s20 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '1';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000000100000000000000000000";
+		
+		when s21 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '1';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000001000000000000000000000";
+		
+		when s22 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '1';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000010000000000000000000000";
+		
+		when s23 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '1';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000000100000000000000000000000";
+			ALU_Opcode<=OPCODE;
+		when s24 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '1';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "11";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000001000000000000000000000000";
+		
+		when s25 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "11";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '1';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000010000000000000000000000000";
+		
+		when s26 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "11";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '1';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000000100000000000000000000000000";
+		
+		when s27 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '1';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000001000000000000000000000000000";
+				
+--				ALU_Opcode<=OPCODE;
+		
+		when s28 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '1';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000010000000000000000000000000000";
+		
+		when s29 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '1'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "10";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000000100000000000000000000000000000";
+		
+		when s30 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '1';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "01";
+				Selector_dato_01 			<= "10";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000000001000000000000000000000000000000";
+		
+		when s31 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "10";
+				Selector_dato_02 			<= '1';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '1';
+				
+				eeee<="000000000000010000000000000000000000000000000";
+		
+		when s32 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "10";
+				Selector_dato_02 			<= '1';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '1';
+				
+				eeee<="000000000000100000000000000000000000000000000";
+		
+		when s33 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '1';
+				Enable_Reg_PC_dir 		<= '1';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "10";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000001000000000000000000000000000000000";
+		
+		when s34 =>
+				Enable_Reg_Inst 			<= '1';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "10";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000010000000000000000000000000000000000";
+
+		when s35 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '1';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "10";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000000100000000000000000000000000000000000";
+
+		when s36 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '1';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "10";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000001000000000000000000000000000000000000";
+		--Interrupciones
+		when s37 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '1';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "01";
+				Selector_dato_01 			<= "10";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000000010000000000000000000000000000000000000";
+
+		when s38 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "10";
+				Selector_dato_02 			<= '1';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '1';
+				
+				eeee<="000000100000000000000000000000000000000000000";
+
+		when s39 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "10";
+				Selector_dato_02 			<= '1';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '1';
+				
+				eeee<="000001000000000000000000000000000000000000000";
+
+		when s40 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "10";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000010000000000000000000000000000000000000000";
+		
+		when s41 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '1';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="000100000000000000000000000000000000000000000";
+		
+		when s42 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "00";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="001000000000000000000000000000000000000000000";
+		
+		when s43 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '0';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '1';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "10";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="010000000000000000000000000000000000000000000";
+		
+		when s44 =>
+				Enable_Reg_Inst 			<= '0';
+				Enable_Reg_Datos 			<= '0'; 
+				Enable_Reg_Dato_B 		<= '0';
+				Enable_PC 					<= '0';
+				Enable_cargar_PC			<= '1';
+				Count_up 					<= '0';
+				Count_down 					<= '0';
+				Enable_Reg_PC_dir 		<= '0';
+				Enable_Reg_Band 			<= '0';
+				Selector_direccion 		<= "10";
+				Selector_dato_01 			<= "00";
+				Selector_dato_02 			<= '0';
+				Selector_dato_B 			<= '0';
+				Ren           				<= '0';
+				Wen           				<= '0';
+				
+				eeee<="100000000000000000000000000000000000000000000";
+		
+		end case;
+end process;
+prueba_estado<=eeee;
+   				
+end ControlArch;
