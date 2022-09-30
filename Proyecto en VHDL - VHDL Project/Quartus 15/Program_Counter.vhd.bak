@@ -1,0 +1,99 @@
+--***********************************************************--
+--        	PONTIFICIA UNIVERSIDAD JAVERIANA	             	 --
+--        		ORGANIZACIÓN DE COMPUTADORES 	                --
+--                   													 --
+-- Nombres: Santiago Burgos, Camila Moya, Dayanna Méndez     --
+-- Título: Proyecto Final: Procesador								 --
+-- Fecha: 03/11/2020                 								 --
+--                                                           --
+--***********************************************************--
+
+--DEFINICIÓN DE LAS LIBRERÍAS 
+
+library IEEE;
+use IEEE.std_logic_1164.all;
+--******************--
+--Definicion Entradas y Salidas
+entity Program_Counter is
+port(
+        clk: in std_logic;
+		  Enable_cont: in std_logic;--Senal Enable contar
+		  Cargar: in std_logic;
+		  NUM:  in std_logic_vector(9 downto 0);
+        SALIDA: out std_logic_vector(9 downto 0)-- Senal de Salida de 6 Bits
+);
+end entity Program_Counter;
+
+--Definicion de la arquitectura
+architecture Program_CounterArch of Program_Counter is
+
+--Definicion Componentes
+Component dffe
+port(d, clk, clrn, prn, ena:in std_logic; q: out std_logic);
+end component;
+
+--Declaracion senales
+signal D, Q, E, Neodato,P:std_logic_vector (9 downto 0);
+signal Enable :std_logic;
+
+begin
+--Declaracion logica
+Neodato(0)<=NUM(0);
+Neodato(1)<=NUM(1);
+Neodato(2)<=NUM(2);
+Neodato(3)<=NUM(3);
+Neodato(4)<=NUM(4);
+Neodato(5)<=NUM(5);
+Neodato(6)<=NUM(6);
+Neodato(7)<=NUM(7);
+Neodato(8)<=NUM(8);
+Neodato(9)<=NUM(9);
+Enable<=Enable_cont;
+
+D(0)<= (((not Q(0)) and Enable and (not Cargar)) xor (Cargar and Neodato(0)));
+D(1)<= (((not Q(1)) and Enable and (not Cargar)) xor (Cargar and Neodato(1)));
+D(2)<= (((not Q(2)) and Enable and (not Cargar)) xor (Cargar and Neodato(2)));
+D(3)<= (((not Q(3)) and Enable and (not Cargar)) xor (Cargar and Neodato(3)));
+D(4)<= (((not Q(4)) and Enable and (not Cargar)) xor (Cargar and Neodato(4)));
+D(5)<= (((not Q(5)) and Enable and (not Cargar)) xor (Cargar and Neodato(5)));
+D(6)<= (((not Q(6)) and Enable and (not Cargar)) xor (Cargar and Neodato(6)));
+D(7)<= (((not Q(7)) and Enable and (not Cargar)) xor (Cargar and Neodato(7)));
+D(8)<= (((not Q(8)) and Enable and (not Cargar)) xor (Cargar and Neodato(8)));
+D(9)<= (((not Q(9)) and Enable and (not Cargar)) xor (Cargar and Neodato(9)));
+
+
+P(0)<=(Enable and Q(0));
+P(1)<=(P(0) and Q(1));
+P(2)<=(P(1) and Q(2));
+P(3)<=(P(2) and Q(3));
+P(4)<=(P(3) and Q(4));
+P(5)<=(P(4) and Q(5));
+P(6)<=(P(5) and Q(6));
+P(7)<=(P(6) and Q(7));
+P(8)<=(P(7) and Q(8));
+P(9)<=(P(8) and Q(9));
+
+E(0)<= (Enable xor Cargar);
+E(1)<=(P(0) xor Cargar);
+E(2)<=(P(1) xor Cargar);
+E(3)<=(P(2) xor Cargar);
+E(4)<=(P(3) xor Cargar);
+E(5)<=(P(4) xor Cargar);
+E(6)<=(P(5) xor Cargar);
+E(7)<=(P(6) xor Cargar);
+E(8)<=(P(7) xor Cargar);
+E(9)<=(P(8) xor Cargar);
+
+dato0: dffe port map(D(0), clk, '1', '1', E(0), Q(0));
+dato1: dffe port map(D(1), clk, '1', '1', E(1), Q(1));
+dato2: dffe port map(D(2), clk, '1', '1', E(2), Q(2));
+dato3: dffe port map(D(3), clk, '1', '1', E(3), Q(3));
+dato4: dffe port map(D(4), clk, '1', '1', E(4), Q(4));
+dato5: dffe port map(D(5), clk, '1', '1', E(5), Q(5));
+dato6: dffe port map(D(6), clk, '1', '1', E(6), Q(6));
+dato7: dffe port map(D(7), clk, '1', '1', E(7), Q(7));
+dato8: dffe port map(D(8), clk, '1', '1', E(8), Q(8));
+dato9: dffe port map(D(9), clk, '1', '1', E(9), Q(9));
+SALIDA<= Q; 
+end Program_CounterArch;
+--******************--

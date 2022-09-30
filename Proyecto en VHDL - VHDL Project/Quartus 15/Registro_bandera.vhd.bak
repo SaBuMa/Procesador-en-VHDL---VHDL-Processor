@@ -1,0 +1,60 @@
+--***********************************************************--
+--        	PONTIFICIA UNIVERSIDAD JAVERIANA	             	 --
+--        		ORGANIZACIÓN DE COMPUTADORES 	                --
+--                   													 --
+-- Nombres: Santiago Burgos, Camila Moya, Dayanna Méndez     --
+-- Título: Proyecto Final: Procesador								 --
+-- Fecha: 03/11/2020                 								 --
+--                                                           --
+--***********************************************************--
+
+--DEFINICIÓN DE LAS LIBRERÍAS 
+library IEEE; 
+use IEEE.std_logic_1164.all;
+use IEEE.std_logic_unsigned.all; 
+
+--******************************************************--
+-- DEFINICION ENTIDAD
+--******************************************************--
+
+--Entradas y salidas 
+
+entity Registro_bandera is
+port(
+		Enable	: in std_logic;
+		Reset		: in std_logic;
+		clk 		: in std_logic;
+		Overflow	: in std_logic;
+		Zero		: in std_logic;
+		Negativo	: in std_logic;
+		Carry_out: in std_logic;
+		data_out	: out std_logic_vector(3 downto 0)
+	  );
+end Entity Registro_bandera;              
+
+--DEFINICIÓN DE ARQUITECTURA                            --
+--******************************************************--
+
+architecture Registro_banderaArch of Registro_bandera is
+
+--******************************************************--
+--DEFINICIÓN DE SEÑALES DE CONEXIÓN                     --
+--******************************************************--
+
+component dffe is
+port(
+	d, clk, clrn, prn, ena: in std_logic;
+	q: out std_logic
+);
+end component dffe;
+
+--******************************************************--
+--Instancias y Conectividad                             --
+--******************************************************--
+begin
+f1 : dffe Port Map(Overflow, clk, reset,'1', Enable, data_out(0));
+f2 : dffe Port Map(Zero, clk, reset,'1', Enable, data_out(1));
+f3 : dffe Port Map(Negativo, clk, reset,'1', Enable, data_out(2));
+f4 : dffe Port Map(Carry_out, clk, reset,'1', Enable, data_out(3));
+
+End  Registro_banderaArch;

@@ -1,0 +1,57 @@
+--***********************************************************--
+--        	PONTIFICIA UNIVERSIDAD JAVERIANA	             	 --
+--        		ORGANIZACIÓN DE COMPUTADORES 	                --
+--                   													 --
+-- Nombres: Santiago Burgos, Camila Moya, Dayanna Méndez     --
+-- Título: Proyecto Final: Procesador								 --
+-- Fecha: 03/11/2020                 								 --
+--                                                           --
+--***********************************************************--
+
+--DEFINICIÓN DE LAS LIBRERÍAS 
+
+library IEEE;
+use IEEE.std_logic_1164.all;
+--***********************************************************--
+--Definicion Entradas y Salidas
+entity Selector_direccion is 
+port(		
+		Selector	: in  std_logic_vector(1 downto 0);
+		Dato_OUT_SP				: in std_logic_vector(9 downto 0);
+		Dato_OUT_PC				: in std_logic_vector(9 downto 0);
+		Dato_OUT_Reg_Inst		: in std_logic_vector(15 downto 0);
+		Entrada_PC_dir			: out std_logic_vector(9 downto 0)
+);
+end entity Selector_direccion; 
+
+architecture Selector_direccionArch of Selector_direccion is
+
+signal Sel_SP: std_logic;
+signal Sel_PC: std_logic;
+signal Sel_Reg_Inst: std_logic;
+signal Salida:std_logic_vector(9 downto 0);
+
+Begin
+
+--Cuando Selector_direccion es 00 la salida de este selector es el dato de salida del registro de instrucciones
+--Cuando Selector_direccion es 01 la salida de este selector es el dato de salida del Stack Pointer
+--Cuando Selector_direccion es 10 la salida de este selector es el dato de salida del Program Counter
+
+Sel_Reg_Inst<=((not(Selector(0))) and (not (Selector(1))));
+Sel_PC<=((not(Selector(0))) and (Selector(1)));
+Sel_SP<=((Selector(0)) and (not (Selector(1))));
+
+Salida(0)<=((Dato_OUT_Reg_Inst(0) and Sel_Reg_Inst) or ((Dato_OUT_PC(0) and Sel_PC)) or ((Dato_OUT_SP(0) and Sel_SP)));
+Salida(1)<=((Dato_OUT_Reg_Inst(1) and Sel_Reg_Inst) or ((Dato_OUT_PC(1) and Sel_PC)) or ((Dato_OUT_SP(1) and Sel_SP)));
+Salida(2)<=((Dato_OUT_Reg_Inst(2) and Sel_Reg_Inst) or ((Dato_OUT_PC(2) and Sel_PC)) or ((Dato_OUT_SP(2) and Sel_SP)));
+Salida(3)<=((Dato_OUT_Reg_Inst(3) and Sel_Reg_Inst) or ((Dato_OUT_PC(3) and Sel_PC)) or ((Dato_OUT_SP(3) and Sel_SP)));
+Salida(4)<=((Dato_OUT_Reg_Inst(4) and Sel_Reg_Inst) or ((Dato_OUT_PC(4) and Sel_PC)) or ((Dato_OUT_SP(4) and Sel_SP)));
+Salida(5)<=((Dato_OUT_Reg_Inst(5) and Sel_Reg_Inst) or ((Dato_OUT_PC(5) and Sel_PC)) or ((Dato_OUT_SP(5) and Sel_SP)));
+Salida(6)<=((Dato_OUT_Reg_Inst(6) and Sel_Reg_Inst) or ((Dato_OUT_PC(6) and Sel_PC)) or ((Dato_OUT_SP(6) and Sel_SP)));
+Salida(7)<=((Dato_OUT_Reg_Inst(7) and Sel_Reg_Inst) or ((Dato_OUT_PC(7) and Sel_PC)) or ((Dato_OUT_SP(7) and Sel_SP)));
+Salida(8)<=((Dato_OUT_Reg_Inst(8) and Sel_Reg_Inst) or ((Dato_OUT_PC(8) and Sel_PC)) or ((Dato_OUT_SP(8) and Sel_SP)));
+Salida(9)<=((Dato_OUT_Reg_Inst(9) and Sel_Reg_Inst) or ((Dato_OUT_PC(9) and Sel_PC)) or ((Dato_OUT_SP(9) and Sel_SP)));
+
+Entrada_PC_dir<=Salida;
+
+end Selector_direccionArch;

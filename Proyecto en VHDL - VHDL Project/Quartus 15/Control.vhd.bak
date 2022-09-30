@@ -1,0 +1,547 @@
+--*********************--
+--         PONTIFICIA UNIVERSIDAD JAVERIANA             --
+--         ORGANIZACIÓN DE COMPUTADORES                --
+--                   --
+-- Nombres: Santiago Burgos, Camila Moya, Dayanna Méndez     --
+-- Título: Primer Laboratorio de Memorias             --
+-- Fecha: 18/09/2020                 --
+--                                                           --
+--*********************--
+
+--Definicion de las bibliotecas
+
+--Definicion de las bibliotecas
+library IEEE;
+use IEEE.std_logic_1164.all;
+--******--
+--Definicion Entradas y Salidas
+entity Control is
+port(
+	clk 							: in std_logic;    
+	Reset         				: in std_logic;
+	Enable        				: in std_logic;
+	Banderas      				: in std_logic_vector(3 downto 0);
+	Reg_inst						: in std_logic_vector(15 downto 0);
+	Ren           				: out std_logic;
+	Wen           				: out std_logic;
+	Selector_Direccion 		: out std_logic_vector(1 downto 0);
+	Selector_dato_01 			: out std_logic_vector(1 downto 0);
+	Selector_dato_02 			: out std_logic;
+	Enable_registro_dato 	: out std_logic;
+	Enable_reg_instruccion 	: out std_logic;
+	Enable_reg_banderas 		: out std_logic;
+	Enable_reg_PC_dir 		: out std_logic;
+	Enable_PC 					: out std_logic;
+	Count_up 					: out std_logic;
+	Count_down 					: out std_logic;
+	Cargar 						: out std_logic;
+	Salida_op     				: out std_logic_vector(3 downto 0);
+	prueba_estado				: out std_logic_vector (14 downto 0)
+
+);
+end entity Control;
+
+--Definicion de la arquitectura
+architecture ControlArch of Control is
+
+--Definicion Componentes
+component dffe
+port(d,clk,clrn,prn,ena: in std_logic;q:out std_logic);
+end component;
+
+--Declaración de señales
+
+type mis_estados is (s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14);
+signal estado: mis_estados;
+
+signal eeee :std_logic_vector (14 downto 0);
+signal OPCODE: std_logic_vector (3 downto 0);
+signal Modo: std_logic_vector (1 downto 0);
+
+
+begin
+
+OPCODE(3)<=Reg_inst	(15);
+OPCODE(2)<=Reg_inst	(14);
+OPCODE(1)<=Reg_inst	(13);
+OPCODE(0)<=Reg_inst	(12);
+
+Modo(1)<=Reg_inst	(11);
+Modo(0)<=Reg_inst	(10);
+
+process(clk,Enable)
+begin
+		if (clk'EVENT and clk = '1') then
+		case estado is
+		when s0 =>
+					
+					estado <= s1;
+		when s1 =>
+					
+					estado <= s2;
+		when s2 =>
+					
+					estado <= s3;
+		when s3 =>
+				estado <= s4;
+			
+					
+		when s4 =>
+		
+				if OPCODE = "0011" and Modo="01" then
+					estado <= s5;
+				elsif (Modo="10" or Modo="11") and (OPCODE ="0100" or OPCODE ="0011") then
+					estado <= s6;
+				end if;
+				
+					
+		when s5 =>
+					
+					estado <= s12;
+		when s6 =>
+					
+				if ((OPCODE="0011" or OPCODE="0100") and (Modo="11")) then
+							estado <= s7;
+				elsif ((Modo="10" and OPCODE="0011")) then
+							estado <= s10;
+				elsif((Modo="10" and OPCODE="0100")) then
+							estado <= s13;
+				end if;
+		when s7 =>
+					
+					estado <= s8;
+		when s8 =>
+					
+					estado <= s9;
+		when s9 =>
+					
+				if (OPCODE="0011" and Modo="11") then
+							estado <= s10;
+				elsif (OPCODE="0100" and Modo="11") then
+							estado <= s13;
+				end if;
+		when s10 =>
+					
+					estado <= s11;
+		when s11 =>
+					
+					estado <= s12;
+		when s12 =>
+					
+					estado <= s1;
+		when s13 =>
+					
+					estado <= s14;
+		when s14 =>
+					
+					estado <= s12;
+		end case;
+	end if;
+	
+
+end process;
+process (estado)
+	begin
+		case estado is
+			when s0 =>
+				Ren<='0';
+				Wen<='0';
+				Selector_Direccion<="00";
+				Selector_dato_01<="00";
+				Selector_dato_02<='0';
+				Enable_registro_dato<='0';
+				Enable_reg_instruccion<='0';
+				Enable_reg_banderas<='0';
+				Enable_reg_PC_dir<='0';
+				Enable_PC<='0';
+				Count_up<='0';
+				Count_down<='0';
+				Cargar<='0';
+				eeee(0)<='1';		
+				eeee(1)<='0';
+				eeee(2)<='0';
+				eeee(3)<='0';
+				eeee(4)<='0';
+				eeee(5)<='0';
+				eeee(6)<='0';
+				eeee(7)<='0';
+				eeee(8)<='0';
+				eeee(9)<='0';
+				eeee(10)<='0';
+				eeee(11)<='0';
+				eeee(12)<='0';
+				eeee(13)<='0';
+				eeee(14)<='0';
+		when s1 =>
+				Selector_Direccion<="10";
+				Enable_reg_PC_dir<='1';
+				
+				eeee(1)<='1';
+				eeee(0)<='0';
+				eeee(2)<='0';
+				eeee(3)<='0';
+				eeee(4)<='0';
+				eeee(5)<='0';
+				eeee(6)<='0';
+				eeee(7)<='0';
+				eeee(8)<='0';
+				eeee(9)<='0';
+				eeee(10)<='0';
+				eeee(11)<='0';
+				eeee(12)<='0';
+				eeee(13)<='0';
+				eeee(14)<='0';
+		
+		when s2 =>
+				Ren<='1';
+				Wen<='0';
+				Selector_Direccion<="10";
+				Selector_dato_01<="00";
+				Selector_dato_02<='0';
+				Enable_registro_dato<='0';
+				Enable_reg_instruccion<='1';
+				eeee(2)<='1';
+				eeee(1)<='0';
+				eeee(0)<='0';
+				eeee(3)<='0';
+				eeee(4)<='0';
+				eeee(5)<='0';
+				eeee(6)<='0';
+				eeee(7)<='0';
+				eeee(8)<='0';
+				eeee(9)<='0';
+				eeee(10)<='0';
+				eeee(11)<='0';
+				eeee(12)<='0';
+				eeee(13)<='0';
+				eeee(14)<='0';
+		when s3 =>
+				Ren<='1';
+				Wen<='0';
+				Enable_reg_instruccion<='1';
+				eeee(3)<='1';
+				eeee(1)<='0';
+				eeee(2)<='0';
+				eeee(0)<='0';
+				eeee(4)<='0';
+				eeee(5)<='0';
+				eeee(6)<='0';
+				eeee(7)<='0';
+				eeee(8)<='0';
+				eeee(9)<='0';
+				eeee(10)<='0';
+				eeee(11)<='0';
+				eeee(12)<='0';
+				eeee(13)<='0';
+				eeee(14)<='0';
+		when s4 =>
+				eeee(4)<='1';
+				eeee(1)<='0';
+				eeee(2)<='0';
+				eeee(3)<='0';
+				eeee(0)<='0';
+				eeee(5)<='0';
+				eeee(6)<='0';
+				eeee(7)<='0';
+				eeee(8)<='0';
+				eeee(9)<='0';
+				eeee(10)<='0';
+				eeee(11)<='0';
+				eeee(12)<='0';
+				eeee(13)<='0';
+				eeee(14)<='0';
+		when s5 =>
+				Ren<='0';
+				Wen<='0';
+				Selector_Direccion<="00";
+				Selector_dato_01<="01";
+				Selector_dato_02<='0';
+				Enable_registro_dato<='1';
+				Enable_reg_instruccion<='0';
+				Enable_reg_banderas<='0';
+				Enable_reg_PC_dir<='0';
+				Enable_PC<='0';
+				Count_up<='0';
+				Count_down<='0';
+				Cargar<='0';
+				eeee(5)<='1';
+				eeee(1)<='0';
+				eeee(2)<='0';
+				eeee(3)<='0';
+				eeee(4)<='0';
+				eeee(0)<='0';
+				eeee(6)<='0';
+				eeee(7)<='0';
+				eeee(8)<='0';
+				eeee(9)<='0';
+				eeee(10)<='0';
+				eeee(11)<='0';
+				eeee(12)<='0';
+				eeee(13)<='0';
+				eeee(14)<='0';
+		when s6 =>
+				Ren<='0';
+				Wen<='0';
+				Selector_Direccion<="00";
+				Selector_dato_01<="00";
+				Selector_dato_02<='0';
+				Enable_registro_dato<='0';
+				Enable_reg_instruccion<='0';
+				Enable_reg_banderas<='0';
+				Enable_reg_PC_dir<='1';
+				Enable_PC<='0';
+				Count_up<='0';
+				Count_down<='0';
+				Cargar<='0';
+				eeee(6)<='1';
+				eeee(1)<='0';
+				eeee(2)<='0';
+				eeee(3)<='0';
+				eeee(4)<='0';
+				eeee(5)<='0';
+				eeee(0)<='0';
+				eeee(7)<='0';
+				eeee(8)<='0';
+				eeee(9)<='0';
+				eeee(10)<='0';
+				eeee(11)<='0';
+				eeee(12)<='0';
+				eeee(13)<='0';
+				eeee(14)<='0';
+		when s7 =>
+				Ren<='1';
+				Wen<='0';
+				Selector_Direccion<="10";
+				Selector_dato_01<="00";
+				Selector_dato_02<='0';
+				Enable_registro_dato<='0';
+				Enable_reg_instruccion<='0';
+				Enable_reg_banderas<='0';
+				Enable_reg_PC_dir<='0';
+				Enable_PC<='0';
+				Count_up<='0';
+				Count_down<='0';
+				Cargar<='0';
+				eeee(7)<='1';
+				eeee(1)<='0';
+				eeee(2)<='0';
+				eeee(3)<='0';
+				eeee(4)<='0';
+				eeee(5)<='0';
+				eeee(6)<='0';
+				eeee(0)<='0';
+				eeee(8)<='0';
+				eeee(9)<='0';
+				eeee(10)<='0';
+				eeee(11)<='0';
+				eeee(12)<='0';
+				eeee(13)<='0';
+				eeee(14)<='0';
+		when s8 =>
+				Ren<='1';
+				Wen<='0';
+				Selector_Direccion<="10";
+				Selector_dato_01<="00";
+				Selector_dato_02<='0';
+				Enable_registro_dato<='0';
+				Enable_reg_instruccion<='1';
+				Enable_reg_banderas<='0';
+				Enable_reg_PC_dir<='0';
+				Enable_PC<='0';
+				Count_up<='0';
+				Count_down<='0';
+				Cargar<='0';
+				eeee(8)<='1';
+				eeee(1)<='0';
+				eeee(2)<='0';
+				eeee(3)<='0';
+				eeee(4)<='0';
+				eeee(5)<='0';
+				eeee(6)<='0';
+				eeee(7)<='0';
+				eeee(0)<='0';
+				eeee(9)<='0';
+				eeee(10)<='0';
+				eeee(11)<='0';
+				eeee(12)<='0';
+				eeee(13)<='0';
+				eeee(14)<='0';
+		when s9 =>
+				Ren<='0';
+				Wen<='0';
+				Selector_Direccion<="00";
+				Selector_dato_01<="00";
+				Selector_dato_02<='0';
+				Enable_registro_dato<='0';
+				Enable_reg_instruccion<='0';
+				Enable_reg_banderas<='0';
+				Enable_reg_PC_dir<='0';
+				Enable_PC<='0';
+				Count_up<='0';
+				Count_down<='0';
+				Cargar<='0';
+				eeee(9)<='1';
+				eeee(1)<='0';
+				eeee(2)<='0';
+				eeee(3)<='0';
+				eeee(4)<='0';
+				eeee(5)<='0';
+				eeee(6)<='0';
+				eeee(7)<='0';
+				eeee(8)<='0';
+				eeee(0)<='0';
+				eeee(10)<='0';
+				eeee(11)<='0';
+				eeee(12)<='0';
+				eeee(13)<='0';
+				eeee(14)<='0';
+		when s10 =>
+				Ren<='1';
+				Wen<='0';
+				Selector_Direccion<="10";
+				Selector_dato_01<="00";
+				Selector_dato_02<='0';
+				Enable_registro_dato<='0';
+				Enable_reg_instruccion<='0';
+				Enable_reg_banderas<='0';
+				Enable_reg_PC_dir<='0';
+				Enable_PC<='0';
+				Count_up<='0';
+				Count_down<='0';
+				Cargar<='0';
+				eeee(10)<='1';
+				eeee(1)<='0';
+				eeee(2)<='0';
+				eeee(3)<='0';
+				eeee(4)<='0';
+				eeee(5)<='0';
+				eeee(6)<='0';
+				eeee(7)<='0';
+				eeee(8)<='0';
+				eeee(9)<='0';
+				eeee(0)<='0';
+				eeee(11)<='0';
+				eeee(12)<='0';
+				eeee(13)<='0';
+				eeee(14)<='0';
+		when s11 =>
+				Ren<='1';
+				Wen<='0';
+				Selector_Direccion<="10";
+				Selector_dato_01<="00";
+				Selector_dato_02<='0';
+				Enable_registro_dato<='0';
+				Enable_reg_instruccion<='1';
+				Enable_reg_banderas<='0';
+				Enable_reg_PC_dir<='0';
+				Enable_PC<='0';
+				Count_up<='0';
+				Count_down<='0';
+				Cargar<='0';
+				eeee(11)<='1';
+				eeee(1)<='0';
+				eeee(2)<='0';
+				eeee(3)<='0';
+				eeee(4)<='0';
+				eeee(5)<='0';
+				eeee(6)<='0';
+				eeee(7)<='0';
+				eeee(8)<='0';
+				eeee(9)<='0';
+				eeee(10)<='0';
+				eeee(0)<='0';
+				eeee(12)<='0';
+				eeee(13)<='0';
+				eeee(14)<='0';
+		when s12 =>
+				Ren<='0';
+				Wen<='0';
+				Selector_Direccion<="00";
+				Selector_dato_01<="00";
+				Selector_dato_02<='0';
+				Enable_registro_dato<='0';
+				Enable_reg_instruccion<='0';
+				Enable_reg_banderas<='0';
+				Enable_reg_PC_dir<='0';
+				Enable_PC<='1';
+				Count_up<='0';
+				Count_down<='0';
+				Cargar<='0';
+				eeee(12)<='1';
+				eeee(1)<='0';
+				eeee(2)<='0';
+				eeee(3)<='0';
+				eeee(4)<='0';
+				eeee(5)<='0';
+				eeee(6)<='0';
+				eeee(7)<='0';
+				eeee(8)<='0';
+				eeee(9)<='0';
+				eeee(10)<='0';
+				eeee(11)<='0';
+				eeee(0)<='0';
+				eeee(13)<='0';
+				eeee(14)<='0';
+		when s13 =>
+				Ren<='0';
+				Wen<='0';
+				Selector_Direccion<="00";
+				Selector_dato_01<="00";
+				Selector_dato_02<='0';
+				Enable_registro_dato<='0';
+				Enable_reg_instruccion<='0';
+				Enable_reg_banderas<='0';
+				Enable_reg_PC_dir<='1';
+				Enable_PC<='0';
+				Count_up<='0';
+				Count_down<='0';
+				Cargar<='0';
+				eeee(13)<='1';
+				eeee(1)<='0';
+				eeee(2)<='0';
+				eeee(3)<='0';
+				eeee(4)<='0';
+				eeee(5)<='0';
+				eeee(6)<='0';
+				eeee(7)<='0';
+				eeee(8)<='0';
+				eeee(9)<='0';
+				eeee(10)<='0';
+				eeee(11)<='0';
+				eeee(12)<='0';
+				eeee(0)<='0';
+				eeee(14)<='0';
+		when s14 =>
+				Ren<='0';
+				Wen<='1';
+				Selector_Direccion<="00";
+				Selector_dato_01<="00";
+				Selector_dato_02<='0';
+				Enable_registro_dato<='0';
+				Enable_reg_instruccion<='0';
+				Enable_reg_banderas<='0';
+				Enable_reg_PC_dir<='0';
+				Enable_PC<='0';
+				Count_up<='0';
+				Count_down<='0';
+				Cargar<='0';
+				eeee(14)<='1';
+				eeee(1)<='0';
+				eeee(2)<='0';
+				eeee(3)<='0';
+				eeee(4)<='0';
+				eeee(5)<='0';
+				eeee(6)<='0';
+				eeee(7)<='0';
+				eeee(8)<='0';
+				eeee(9)<='0';
+				eeee(10)<='0';
+				eeee(11)<='0';
+				eeee(12)<='0';
+				eeee(13)<='0';
+				eeee(0)<='0';
+		end case;
+end process;
+prueba_estado<=eeee;
+salida_op<= OPCODE;
+end ControlArch;

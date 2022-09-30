@@ -1,0 +1,302 @@
+--***********************************************************--
+--        	PONTIFICIA UNIVERSIDAD JAVERIANA	             	 --
+--        		ORGANIZACIÓN DE COMPUTADORES 	                --
+--                   													 --
+-- Nombres: Santiago Burgos, Camila Moya, Dayanna Méndez     --
+-- Título: Proyecto Final: Procesador								 --
+-- Fecha: 03/11/2020                 								 --
+--                                                           --
+--***********************************************************--
+
+--DEFINICIÓN DE LAS LIBRERÍAS 
+
+library IEEE;
+use IEEE.std_logic_1164.all;
+--******************--
+--DEFINICIÓN DE ENTRADAS Y SALIDAS
+entity Procesador is 
+port(
+		Enable	: in std_logic;
+		Reset		: in std_logic;
+		clk		: in std_logic;
+		salida_estado	: out std_logic_vector (14 downto 0);
+		OP					: out std_logic_vector (3 downto 0);
+		salida_ram		: out std_logic_vector(15 downto 0);
+		entrada_ram		: out std_logic_vector(15 downto 0);
+		REGISTROINSTRUCCIONES : out std_logic_vector(15 downto 0);
+		direccion_pc	: out std_logic_vector(9 downto 0)
+);
+end entity Procesador; 
+
+--DEFINICIÓN DE ARQUITECTURA
+architecture ProcesadorArch of Procesador is
+
+--DEFINICIÓN DE COMPONENTES
+
+--Componentes de la ALU
+component ALU_sumador is
+port(
+	Carr_in					: in std_logic;
+	A							: in std_logic_vector(15 downto 0);
+	Bcomp						: in std_logic_vector(15 downto 0);
+	Salida					: out std_logic_vector(15 downto 0);
+	Carry_out				: out std_logic_vector(15 downto 0);
+	Overflow					: out std_logic
+);
+end component;
+
+component ALU_Comparador is 
+port(
+	OP							: in std_logic_vector(3 downto 0);
+	Salida					: in std_logic_vector(15 downto 0);
+	Carry_out				: in std_logic_vector(15 downto 0);
+	Negativo					: out std_logic;
+	Zero						: out std_logic
+);
+end component;
+
+component ALU_Complemento is
+port(
+	Carr_in					: in std_logic;
+	OP							: in std_logic_vector(3 downto 0);
+	B							: in std_logic_vector(15 downto 0);
+	Bcomp						: out std_logic_vector(15 downto 0)
+);
+end component;
+
+component ALU is 
+port(
+		A			: in std_logic_vector(15 downto 0);
+		B			: in std_logic_vector(15 downto 0);
+		OP			: in std_logic_vector(3 downto 0);
+		Overflow	: out std_logic;
+		Zero		: out std_logic;
+		Negativo : out std_logic;
+		Carry_out: out std_logic;
+		Salida	: out std_logic_vector(15 downto 0)
+);
+end component; 
+
+component Stack is
+port(
+        clk: in std_logic;
+		  Cont_up: in std_logic;
+		  Cont_down: in std_logic;
+        SALIDA: out std_logic_vector(9 downto 0)
+);
+end component Stack;
+
+component Program_Counter is
+port(
+        clk: in std_logic;
+		  Enable_cont: in std_logic;--Senal Enable contar
+		  Cargar: in std_logic;
+		  NUM:  in std_logic_vector(9 downto 0);
+        SALIDA: out std_logic_vector(9 downto 0)-- Senal de Salida de 6 Bits
+);
+end component Program_Counter;
+
+component Registro_dato is
+port(
+		data_in	: in std_logic_vector(15 downto 0);
+		Enable	: in std_logic;
+		Reset		: in std_logic;
+		clk 		: in std_logic;
+		data_out	: out std_logic_vector(15 downto 0)
+	  );
+end component Registro_dato;              
+
+component Registro_instruccion is
+port(
+		data_in	: in std_logic_vector(15 downto 0);
+		Enable	: in std_logic;
+		Reset		: in std_logic;
+		clk 		: in std_logic;
+		data_out	: out std_logic_vector(15 downto 0)
+	  );
+end component Registro_instruccion;
+
+component Selector_dato_01 is 
+port(		
+		Selector_dato_01		: in  std_logic_vector(1 downto 0);
+		Dato_OUT_Memoria		: in std_logic_vector(15 downto 0);
+		Dato_OUT_ALU			: in std_logic_vector(15 downto 0);
+		Dato_OUT_Reg_Inst		: in std_logic_vector(15 downto 0);
+		Salida_Sel_dato_01	: out std_logic_vector(15 downto 0)
+);
+end component Selector_dato_01; 
+
+
+component Selector_dato_02 is 
+port(		
+		Selector_dato_02		: in 	std_logic;
+		Dato_OUT_Reg_Dat		: in std_logic_vector(15 downto 0);
+		Dato_OUT_PC				: in std_logic_vector(9 downto 0);
+		Salida_Sel_dato_02	: out std_logic_vector(15 downto 0)
+);
+end component Selector_dato_02;
+
+component Selector is 
+port(		
+		Selector_direccion	: in  std_logic_vector(1 downto 0);
+		Dato_OUT_SP				: in std_logic_vector(9 downto 0);
+		Dato_OUT_PC				: in std_logic_vector(9 downto 0);
+		Dato_OUT_Reg_Inst		: in std_logic_vector(15 downto 0);
+		Entrada_PC_dir			: out std_logic_vector(9 downto 0)
+);
+end component Selector; 
+
+component Registro_PC_dir is
+port(
+		data_in	: in std_logic_vector(9 downto 0);
+		Enable	: in std_logic;
+		Reset		: in std_logic;
+		clk 		: in std_logic;
+		data_out	: out std_logic_vector(9 downto 0)
+);
+end component Registro_PC_dir;              
+
+component Registro_bandera is
+port(
+		Enable	: in std_logic;
+		Reset		: in std_logic;
+		clk 		: in std_logic;
+		Overflow	: in std_logic;
+		Zero		: in std_logic;
+		Negativo	: in std_logic;
+		Carry_out: in std_logic;
+		data_out	: out std_logic_vector(3 downto 0)
+	  );
+end component Registro_bandera;              
+
+component Control is 
+port(
+		clk 							: in std_logic;    
+		Reset         				: in std_logic;
+		Enable        				: in std_logic;
+		Banderas      				: in std_logic_vector(3 downto 0);
+		Reg_inst						: in std_logic_vector(15 downto 0);
+		Ren           				: out std_logic;
+		Wen           				: out std_logic;
+		Selector_Direccion 		: out std_logic_vector(1 downto 0);
+		Selector_dato_01 			: out std_logic_vector(1 downto 0);
+		Selector_dato_02 			: out std_logic;
+		Enable_registro_dato 	: out std_logic;
+		Enable_reg_instruccion 	: out std_logic;
+		Enable_reg_banderas 		: out std_logic;
+		Enable_reg_PC_dir 		: out std_logic;
+		Enable_PC 					: out std_logic;
+		Count_up 					: out std_logic;
+		Count_down 					: out std_logic;
+		Cargar 						: out std_logic;
+		Salida_op     				: out std_logic_vector(3 downto 0);
+		prueba_estado				: out std_logic_vector (14 downto 0)
+		
+);
+end component Control; 
+
+component RAM is
+port(
+		address	: IN STD_LOGIC_VECTOR (9 DOWNTO 0);
+		clock		: IN STD_LOGIC ;
+		data		: IN STD_LOGIC_VECTOR (15 DOWNTO 0);
+		rden		: IN STD_LOGIC ;
+		wren		: IN STD_LOGIC ;
+		q			: OUT STD_LOGIC_VECTOR (15 DOWNTO 0)
+);
+end component;
+
+--DECLARACION DE SEÑALES
+
+--Declaración de señales de la ALU
+signal Zero_signal: std_logic;
+signal Overflow_signal: std_logic;
+signal Negativo_signal: std_logic;
+signal Carry_out_sumador_signal: std_logic;
+signal A_signal: std_logic_vector(15 downto 0);
+signal B_signal: std_logic_vector(15 downto 0);
+signal Salida_suma_signal: std_logic_vector(15 downto 0);
+
+--Del registro de datos Registro_dato
+signal Enable_Reg_dato_signal: std_logic;--Enable del registro Registro_dato
+signal Salida_Sel_dato_01_signal:std_logic_vector(15 downto 0);--Salida del selector Selector_dato_01 y entrada del registro Registro_dato
+signal Salida_Registro_dato_signal:std_logic_vector(15 downto 0);--Salida del registro Registro_dato
+
+--Del Selector Selector_dato_01
+signal Selector_dato_01_signal:std_logic_vector(1 downto 0);--Señal de selección que sale del control y entra al selector selector_dato_01
+signal Dato_OUT_Memoria_signal:std_logic_vector(15 downto 0);--Dato que sale de la memoria y entra al selector Selector_dato_01
+signal Dato_OUT_ALU_signal:std_logic_vector(15 downto 0);--Dato que sale de la ALU y entra al selector Selector_dato_01
+signal Dato_OUT_Reg_Inst_signal:std_logic_vector(15 downto 0);--Dato que sale del registro de instrucciones y entra al selector Selector_dato_01
+
+--Del selector Selector_dato_02
+signal Selector_dato_02_signal:std_logic;--Señal de selección que sale del control y entra al selector Selector_dato_02
+signal Dato_OUT_Reg_Dat_signal:std_logic_vector(15 downto 0);--Dato que sale del registro Registro_dato y entra al selector Selector_dato_02
+signal Salida_Sel_dato_02_signal:std_logic_vector(15 downto 0);--Salida del selector Selector_dato_02
+
+--Del selector Selector
+signal Selector_direccion_signal:std_logic_vector(1 downto 0);--Señal que sale del control y entra al selector Selector
+signal Dato_OUT_SP_signal:std_logic_vector(9 downto 0);--Dato que sale del Stack Pointer y entra al Selector
+signal Entrada_PC_dir_signal:std_logic_vector(9 downto 0);--Salida del Selector y entrada del registro PC_dir
+signal Dato_OUT_PC_signal:std_logic_vector(9 downto 0);--Dato que sale del Program Counter y entra al selector Selector
+
+--Del registro de instrucciones 
+signal Enable_Reg_inst_signal:std_logic;--Señal que habilita el registro de instrucciones desde el control
+
+--Del registro PC_dir
+signal Enable_Reg_PC_dir_signal:std_logic;--Señal que habilita el registro de PC_dir desde el control
+signal address_signal:std_logic_vector(9 downto 0); --Salida del registro PC_dir y dirección de la memoria
+
+--Del Program Counter
+signal Enable_PC_signal:std_logic;--Señal que habilita el Program counter desde el control
+signal Cargar_signal:std_logic;--Señal para cargar el PC con un valor
+signal Numero_Cargar_signal:std_logic_vector(9 downto 0);--El número con el que se carga el program counter
+
+--Del Stack Pointer 
+signal Count_up_signal:std_logic;--Señal para habilitar que el Stack Pointer aumente su valor
+signal Count_down_signal:std_logic;--Señal para habilitar que el Stack Pointer disminuya su valor
+
+--Del Registro de banderas
+signal Enable_Reg_Band_signal:std_logic;--Señal que habilita el registro de banderas
+signal Salida_bandera_signal:std_logic_vector(3 downto 0);
+
+--Del control
+--signal Modo_signal:std_logic_vector(1 downto 0);
+signal OPCODE_signal:std_logic_vector(3 downto 0);
+signal Ren_signal:std_logic;
+signal Wen_signal:std_logic;
+signal estado_signal :std_logic_vector(14 downto 0);
+
+begin
+
+ALU_portmap: ALU port map(Dato_OUT_Reg_Dat_signal,Dato_OUT_Reg_Inst_signal,OPCODE_signal,Overflow_signal,Zero_signal,Negativo_signal,Carry_out_sumador_signal,Dato_OUT_ALU_signal);
+
+Registro_dato_portmap: Registro_dato port map (Salida_Sel_dato_01_signal,Enable_Reg_dato_signal,Reset,clk,Dato_OUT_Reg_Dat_signal);
+
+Selector_dato_01_portmap: Selector_dato_01 port map (Selector_dato_01_signal,Dato_OUT_Memoria_signal,Dato_OUT_ALU_signal,Dato_OUT_Reg_Inst_signal,Salida_Sel_dato_01_signal);
+
+Selector_dato_02_portmap: Selector_dato_02 port map (Selector_dato_02_signal,Dato_OUT_Reg_Dat_signal,Dato_OUT_PC_signal,Salida_Sel_dato_02_signal);
+
+Selector_portmap: Selector port map (Selector_direccion_signal,Dato_OUT_SP_signal,Dato_OUT_PC_signal,Dato_OUT_Reg_Inst_signal,Entrada_PC_dir_signal);
+
+Registro_instruccion_portmap: Registro_instruccion port map (Dato_OUT_Memoria_signal,Enable_Reg_inst_signal,Reset,clk,Dato_OUT_Reg_Inst_signal);
+	  
+Registro_PC_dir_portmap: Registro_PC_dir port map (Entrada_PC_dir_signal,Enable_Reg_PC_dir_signal,Reset,clk,address_signal);
+
+Program_Counter_portmap: Program_Counter port map (clk,Enable_PC_signal,Cargar_signal,Numero_Cargar_signal,Dato_OUT_PC_signal);
+
+Stack_portmap: Stack port map (clk,Count_up_signal,Count_down_signal,Dato_OUT_SP_signal);
+
+Registro_bandera_portmap: Registro_bandera port map (Enable_Reg_Band_signal,Reset,clk,Overflow_signal,Zero_signal,Negativo_signal,Carry_out_sumador_signal,Salida_bandera_signal);
+
+Control_portmap: Control port map (clk,Reset,Enable,Salida_bandera_signal,Dato_OUT_Reg_Inst_signal,Ren_signal,Wen_signal,Selector_Direccion_signal,Selector_dato_01_signal,Selector_dato_02_signal,Enable_Reg_dato_signal,Enable_Reg_inst_signal,Enable_Reg_Band_signal,Enable_Reg_PC_dir_signal,Enable_PC_signal,Count_up_signal,Count_down_signal,Cargar_signal,OPCODE_signal,estado_signal);
+
+RAM_portmap: RAM port map(address_signal,clk,Salida_Sel_dato_02_signal,Ren_signal,Wen_signal,dato_OUT_Memoria_signal);
+
+salida_ram<= Dato_OUT_Memoria_signal;
+entrada_ram<=salida_Sel_dato_02_signal;
+direccion_pc<=address_signal;
+salida_estado<=estado_signal;
+OP <= OPCODE_signal;
+REGISTROINSTRUCCIONES<=Dato_OUT_Reg_Inst_signal;
+
+end ProcesadorArch;

@@ -1,0 +1,104 @@
+--***********************************************************--
+--        	PONTIFICIA UNIVERSIDAD JAVERIANA	             	 --
+--        		ORGANIZACIÓN DE COMPUTADORES 	                --
+--                   													 --
+-- Nombres: Santiago Burgos, Camila Moya, Dayanna Méndez     --
+-- Título: Segundo Parcial: Unidad Aritmético Lógica ALU     --
+-- Fecha: 03/11/2020                 								 --
+--                                                           --
+--***********************************************************--
+
+--DEFINICIÓN DE LAS LIBRERÍAS 
+
+library IEEE;
+use IEEE.std_logic_1164.all;
+--******************--
+--DEFINICIÓN DE ENTRADAS Y SALIDAS
+entity ALU is 
+port(
+		A			: in std_logic_vector(15 downto 0);
+		B			: in std_logic_vector(15 downto 0);
+		OP			: in std_logic_vector(3 downto 0);
+		Overflow	: out std_logic;
+		Zero		: out std_logic;
+		Negativo : out std_logic;
+		Carry_out: out std_logic;
+		Salida	: out std_logic_vector(15 downto 0)
+);
+end entity ALU; 
+
+--DEFINICIÓN DE ARQUITECTURA
+architecture ALUArch of ALU is
+
+--DEFINICIÓN DE COMPONENTES
+component sumador is
+port(
+	Carr_in					: in std_logic;
+	A							: in std_logic_vector(15 downto 0);
+	Bcomp						: in std_logic_vector(15 downto 0);
+	Salida					: out std_logic_vector(15 downto 0);
+	Carry_out				: out std_logic_vector(15 downto 0);
+	Overflow					: out std_logic
+);
+end component;
+
+component Comparador is 
+port(
+	OP							: in std_logic_vector(3 downto 0);
+	Salida					: in std_logic_vector(15 downto 0);
+	Carry_out				: in std_logic_vector(15 downto 0);
+	Negativo					: out std_logic;
+	Zero						: out std_logic
+);
+end component;
+
+component Complemento is
+port(
+	OP							: in std_logic_vector(3 downto 0);
+	B							: in std_logic_vector(15 downto 0);
+	SUM_uno					: out std_logic;
+	Bcomp						: out std_logic_vector(15 downto 0)
+);
+end component;
+
+--DECLARACION DE SEÑALES
+
+--Señales de Carry de entrada
+
+signal Carry_in_sumador_signal :std_logic;
+
+--Entradas del sumador 
+signal A_signal: std_logic_vector(15 downto 0);
+signal B_comp_signal: std_logic_vector(15 downto 0);
+
+--Entradas del complemento
+signal B_signal: std_logic_vector(15 downto 0);
+
+--Salidas del sumador
+signal Salida_suma_signal: std_logic_vector(15 downto 0);
+signal Carry_out_sumador_signal: std_logic_vector(15 downto 0);
+
+--Salidas del Comparador
+signal Overflow_signal: std_logic;
+signal Zero_signal: std_logic;
+signal Negativo_signal: std_logic;
+
+begin
+--Asigno a las señales los valores de entrada
+A_signal<=A;
+B_signal<=B;
+
+--CONEXIÓN DE ENTRADAS Y SALIDAS
+Complemento_portmap: Complemento port map(OP,B_signal,Carry_in_sumador_signal,B_comp_signal);
+Comparador_portmap: Comparador port map(OP,Salida_suma_signal,Carry_out_sumador_signal,Negativo_signal,Zero_signal);
+sumador_portmap: sumador port map(Carry_in_sumador_signal,A_signal,B_comp_signal,Salida_suma_signal,Carry_out_sumador_signal,Overflow_signal);
+
+
+--ASIGNACIÓN DE VARIABLES A LA SALIDA
+Overflow<=Overflow_signal;
+Zero<=Zero_signal;
+Negativo<=Negativo_signal;
+Carry_out<=Carry_out_sumador_signal(15);
+Salida<=Salida_suma_signal;
+
+end ALUArch;
