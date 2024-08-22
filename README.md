@@ -20,7 +20,7 @@ La primera función que se tiene es la de realizar operaciones aritméticas como
 
 La segunda función es el manejo de múltiples registros dentro del procesador para que de esta forma varias porciones de información y de instrucciones puedan ser procesadas, manipuladas y ejecutadas, creando así una forma más cómoda para el trabajo con los datos.
 <p align="center">
-<img src="GitImages/Instrucciones.png" alt="Instrucciones" width="380"/>  
+<img src="GitImages/Instrucciones.png" alt="Instrucciones" width="480"/>  
 </p>
 
 ### Diagrama Bloques Procesador
